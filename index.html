@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Dophamin Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --bg:#F3EFE7;
+    --surface:#FFFFFF;
+    --ink:#2B2A26;
+    --ink-soft:#928C7E;
+    --line:#E4DDCD;
+    --accent:#A8492E;
+    --accent-2:#5C6E4E;
+    --danger:#A8492E;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'IBM Plex Sans Arabic', system-ui, Tahoma, sans-serif;
+    min-height:100vh;
+    padding-top:96px;
+  }
+  h1,h2,h3,.display{ font-family:'Cairo', system-ui, Tahoma, sans-serif; }
+  button{font-family:inherit;cursor:pointer;}
+  input{font-family:inherit;}
+
+  /* ---------------- Top bar (transparent) ---------------- */
+  .topbar{
+    position:fixed;top:0;right:0;left:0;z-index:40;
+    background:rgba(243,239,231,0.72);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+    padding:12px 18px;
+    display:flex;align-items:center;justify-content:center;
+    gap:10px;
+  }
+  .brand-btn{
+    display:flex;align-items:center;gap:9px;
+    background:none;border:none;padding:4px 8px;
+  }
+  .brand-btn .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:#5C8A5C;
+    flex:none;
+    transition:background .2s ease;
+  }
+  .brand-btn .dot.bad{background:#D9A441;}
+  .brand-btn .wordmark{
+    font-family:'Cairo',sans-serif;
+    font-weight:800;
+    font-size:18px;
+    letter-spacing:.2px;
+    color:var(--ink);
+  }
+  .brand-btn .wordmark b{color:var(--accent);}
+
+  /* ---------------- Search bar (white, below topbar) ---------------- */
+  .searchbar{
+    position:fixed;top:48px;right:0;left:0;z-index:39;
+    background:var(--surface);
+    border-bottom:1px solid var(--line);
+    padding:10px 16px;
+  }
+  .searchbar-inner{
+    max-width:720px;margin:0 auto;position:relative;
+  }
+  .searchbar input{
+    width:100%;
+    border:1px solid var(--line);
+    background:var(--bg);
+    border-radius:9px;
+    padding:10px 40px 10px 12px;
+    font-size:14.5px;
+    outline:none;
+    color:var(--ink);
+  }
+  .searchbar input:focus{border-color:var(--accent);}
+  .searchbar .icon{
+    position:absolute;right:13px;top:50%;transform:translateY(-50%);
+    color:var(--ink-soft);font-size:14px;pointer-events:none;
+  }
+
+  /* ---------------- Content ---------------- */
+  .content{
+    max-width:720px;
+    margin:0 auto;
+    padding:16px 14px 60px;
+  }
+
+  /* ---------------- Category grid ---------------- */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:10px;
+  }
+  @media (min-width:640px){
+    .grid{grid-template-columns:repeat(3, 1fr);}
+  }
+
+  .tile{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px 12px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    aspect-ratio:1/0.82;
+    text-align:right;
+    position:relative;
+    transition:border-color .15s ease, transform .1s ease;
+  }
+  .tile:active{transform:scale(0.98);}
+  .tile:hover{border-color:var(--ink-soft);}
+  .tile .mono{
+    width:32px;height:32px;
+    border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:14px;color:#fff;
+    flex:none;
+  }
+  .tile .t-name{
+    font-family:'Cairo',sans-serif;
+    font-weight:700;
+    font-size:14.5px;
+    color:var(--ink);
+    margin-top:10px;
+    line-height:1.3;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .tile .t-count{
+    font-size:11.5px;color:var(--ink-soft);margin-top:4px;
+  }
+
+  .tile.add-tile{
+    align-items:center;justify-content:center;
+    border:1.5px dashed var(--line);
+    background:transparent;
+  }
+  .tile.add-tile .plus{
+    font-size:22px;color:var(--ink-soft);font-weight:400;
+  }
+  .tile.add-tile span.lbl{
+    font-size:12.5px;color:var(--ink-soft);margin-top:4px;font-weight:600;
+  }
+  .tile.add-tile:hover{border-color:var(--accent);}
+  .tile.add-tile:hover .plus, .tile.add-tile:hover .lbl{color:var(--accent);}
+
+  .empty-note{
+    text-align:center;color:var(--ink-soft);font-size:13.5px;
+    padding:50px 20px;
+  }
+
+  /* ---------------- Category detail view ---------------- */
+  .detail-head{
+    display:flex;align-items:center;gap:10px;margin-bottom:14px;
+  }
+  .back-btn{
+    width:34px;height:34px;flex:none;border-radius:8px;
+    border:1px solid var(--line);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;
+    font-size:15px;color:var(--ink);
+  }
+  .back-btn:hover{border-color:var(--ink-soft);}
+  .detail-head input.cat-name{
+    flex:1;min-width:0;
+    font-family:'Cairo',sans-serif;font-weight:800;font-size:19px;
+    border:none;outline:none;background:transparent;color:var(--ink);
+    border-bottom:2px solid transparent;padding:4px 2px;
+  }
+  .detail-head input.cat-name:focus{border-bottom:2px solid var(--accent);}
+  .detail-head .del-cat-btn{
+    width:34px;height:34px;flex:none;border-radius:8px;
+    border:1px solid var(--line);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;color:var(--ink-soft);
+  }
+  .detail-head .del-cat-btn:hover{border-color:var(--danger);color:var(--danger);}
+
+  .plist{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .plist-header{
+    display:flex;align-items:center;gap:6px;
+    padding:9px 12px;
+    background:var(--bg);
+    border-bottom:1px solid var(--line);
+    font-size:11.5px;font-weight:700;color:var(--ink-soft);
+  }
+  .plist-header .c-name{flex:1;}
+  .plist-header .c-unit{width:58px;text-align:center;}
+  .plist-header .c-price{width:70px;text-align:center;}
+  .plist-header .c-del{width:26px;}
+
+  .prow{
+    display:flex;align-items:center;gap:6px;
+    padding:6px 12px;
+    border-bottom:1px solid var(--line);
+  }
+  .prow:last-child{border-bottom:none;}
+  .prow input{
+    border:1px solid transparent;background:transparent;
+    border-radius:6px;padding:7px 6px;font-size:13.5px;color:var(--ink);outline:none;
+    width:100%;
+  }
+  .prow input:hover{border-color:var(--line);background:var(--bg);}
+  .prow input:focus{border-color:var(--accent);background:var(--bg);}
+  .prow .c-name{flex:1;min-width:0;}
+  .prow .c-unit{width:58px;flex:none;}
+  .prow .c-unit input{text-align:center;padding:7px 2px;}
+  .prow .c-price{width:70px;flex:none;}
+  .prow .c-price input{text-align:center;font-weight:700;color:var(--accent);padding:7px 2px;}
+  .prow .c-del{width:26px;flex:none;display:flex;justify-content:center;}
+  .prow .del-p{
+    border:none;background:transparent;color:var(--ink-soft);
+    width:24px;height:24px;border-radius:6px;font-size:13px;
+  }
+  .prow .del-p:hover{background:#F3E1DC;color:var(--danger);}
+
+  .add-row{
+    display:flex;align-items:center;gap:6px;
+    padding:9px 12px;background:var(--bg);
+  }
+  .add-row input{
+    border:1px dashed var(--line);border-radius:6px;background:var(--surface);
+    padding:8px 6px;font-size:13.5px;outline:none;width:100%;
+  }
+  .add-row input:focus{border-color:var(--accent);}
+  .add-row .c-name{flex:1;min-width:0;}
+  .add-row .c-unit{width:58px;flex:none;}
+  .add-row .c-unit input{text-align:center;}
+  .add-row .c-price{width:70px;flex:none;}
+  .add-row .c-price input{text-align:center;}
+  .add-row .c-del{width:26px;flex:none;display:flex;justify-content:center;}
+  .add-row .add-p{
+    border:none;background:var(--accent);color:#fff;
+    width:24px;height:24px;border-radius:6px;font-size:14px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .add-row .add-p:hover{background:#8A3B24;}
+
+  .empty-plist{
+    padding:36px 20px;text-align:center;color:var(--ink-soft);font-size:13.5px;
+  }
+
+  /* ---------------- Search results ---------------- */
+  .search-group-label{
+    font-size:11.5px;font-weight:700;color:var(--ink-soft);
+    padding:12px 12px 6px;
+  }
+  .search-item-cat{
+    font-size:11px;color:var(--ink-soft);margin-right:4px;
+  }
+  .no-results{
+    text-align:center;color:var(--ink-soft);font-size:14px;padding:50px 20px;
+  }
+
+  :focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+  ::-webkit-scrollbar{width:0;height:0;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="brand-btn" id="brandBtn" title="تحديث الصفحة">
+    <span class="dot" id="statusDot"></span>
+    <span class="wordmark">Dop<b>hamin</b> Market</span>
+  </button>
+</div>
+
+<div class="searchbar">
+  <div class="searchbar-inner">
+    <input id="searchInput" type="text" placeholder="ابحث عن قسم أو صنف..." />
+    <span class="icon">⌕</span>
+  </div>
+</div>
+
+<div class="content" id="content"></div>
+
+<script>
+(function(){
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCTHkNdcfPMu4vcgTpCXAw7g7RelUHEN0U",
+    authDomain: "dophaminmarket.firebaseapp.com",
+    projectId: "dophaminmarket",
+    storageBucket: "dophaminmarket.firebasestorage.app",
+    messagingSenderId: "429552108570",
+    appId: "1:429552108570:web:63a41990355b6239c7bda3"
+  };
+  const DOC_PATH = { collection: 'store', doc: 'catalog' };
+  const TILE_COLORS = ['#A8492E','#5C6E4E','#B08A3E','#4E6E7A','#8A5C7A','#6E5C3E','#4E7A5E','#7A4E4E'];
+
+  let data = { storeName: 'Dophamin Market', categories: [] };
+  let view = { mode: 'grid', catId: null }; // 'grid' | 'category'
+  let searchTerm = '';
+  let db, docRef;
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(s){
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function colorFor(str){
+    let h = 0;
+    for(let i=0;i<str.length;i++) h = (h*31 + str.charCodeAt(i)) >>> 0;
+    return TILE_COLORS[h % TILE_COLORS.length];
+  }
+  function initials(name){
+    const t = (name||'').trim();
+    return t ? t[0] : '؟';
+  }
+
+  document.getElementById('brandBtn').addEventListener('click', () => location.reload());
+
+  /* ---------------- Firestore wiring ---------------- */
+  function setStatus(ok){
+    document.getElementById('statusDot').classList.toggle('bad', !ok);
+  }
+
+  function isEditingNow(){
+    const el = document.activeElement;
+    return el && el.tagName === 'INPUT' && el.dataset.live === '1';
+  }
+
+  function startApp(){
+    try{ firebase.initializeApp(FIREBASE_CONFIG); }catch(e){}
+    db = firebase.firestore();
+    docRef = db.collection(DOC_PATH.collection).doc(DOC_PATH.doc);
+
+    docRef.onSnapshot({ includeMetadataChanges: true }, snap => {
+      if(snap.metadata.hasPendingWrites) return;
+      if(!snap.exists){ docRef.set(data); return; }
+      const remote = snap.data();
+      if(isEditingNow()) { setStatus(!snap.metadata.fromCache); return; }
+      if(JSON.stringify(remote) !== JSON.stringify(data)){
+        data = remote;
+        if(view.mode === 'category' && !data.categories.find(c => c.id === view.catId)){
+          view = { mode:'grid', catId:null };
+        }
+        render();
+      }
+      setStatus(!snap.metadata.fromCache);
+    }, err => {
+      console.error(err);
+      setStatus(false);
+    });
+  }
+
+  function pushData(){
+    if(!docRef) return;
+    docRef.set(data).catch(err => { console.error(err); setStatus(false); });
+  }
+  function debounce(fn, ms){
+    let t;
+    return function(...a){ clearTimeout(t); t = setTimeout(() => fn.apply(this,a), ms); };
+  }
+  const debouncedPush = debounce(pushData, 450);
+
+  /* ---------------- Mutations ---------------- */
+  function addCategory(){
+    const cat = { id: uid(), name: 'قسم جديد', products: [] };
+    data.categories.push(cat);
+    view = { mode:'category', catId: cat.id };
+    pushData();
+    render();
+    setTimeout(() => {
+      const inp = document.querySelector('.detail-head input.cat-name');
+      if(inp){ inp.focus(); inp.select(); }
+    }, 30);
+  }
+  function deleteCategory(id){
+    const cat = data.categories.find(c => c.id === id);
+    if(!cat) return;
+    if(!confirm(`حذف "${cat.name}" وكل منتجاته؟`)) return;
+    data.categories = data.categories.filter(c => c.id !== id);
+    view = { mode:'grid', catId:null };
+    pushData();
+    render();
+  }
+  function renameCategory(id, name){
+    const cat = data.categories.find(c => c.id === id);
+    if(!cat) return;
+    cat.name = name;
+    debouncedPush();
+  }
+  function addProduct(catId, name, unit, price){
+    const cat = data.categories.find(c => c.id === catId);
+    if(!cat || !name.trim()) return;
+    cat.products.push({ id: uid(), name: name.trim(), unit: unit.trim(), price: price.trim() });
+    pushData();
+    render();
+  }
+  function updateProduct(catId, prodId, field, value){
+    const cat = data.categories.find(c => c.id === catId);
+    if(!cat) return;
+    const p = cat.products.find(p => p.id === prodId);
+    if(!p) return;
+    p[field] = value;
+    debouncedPush();
+  }
+  function deleteProduct(catId, prodId){
+    const cat = data.categories.find(c => c.id === catId);
+    if(!cat) return;
+    cat.products = cat.products.filter(p => p.id !== prodId);
+    pushData();
+    render();
+  }
+
+  /* ---------------- Render ---------------- */
+  function renderGrid(){
+    const cats = data.categories;
+    let html = '<div class="grid">';
+    cats.forEach(cat => {
+      const col = colorFor(cat.name || cat.id);
+      html += `
+        <div class="tile" data-cat="${cat.id}">
+          <span class="mono" style="background:${col};">${escapeHtml(initials(cat.name))}</span>
+          <div>
+            <div class="t-name">${escapeHtml(cat.name)}</div>
+            <div class="t-count">${cat.products.length} صنف</div>
+          </div>
+        </div>`;
+    });
+    html += `
+        <div class="tile add-tile" id="addTile">
+          <span class="plus">+</span>
+          <span class="lbl">قسم جديد</span>
+        </div>
+      </div>`;
+    if(cats.length === 0){
+      html = `<div class="grid"><div class="tile add-tile" id="addTile"><span class="plus">+</span><span class="lbl">أضف أول قسم</span></div></div>`;
+    }
+    document.getElementById('content').innerHTML = html;
+    document.getElementById('addTile').addEventListener('click', addCategory);
+    document.querySelectorAll('.tile[data-cat]').forEach(t => {
+      t.addEventListener('click', () => {
+        view = { mode:'category', catId: t.dataset.cat };
+        render();
+      });
+    });
+  }
+
+  function productRowHtml(p){
+    return `
+      <div class="prow" data-prod="${p.id}">
+        <div class="c-name"><input type="text" value="${escapeHtml(p.name)}" data-field="name" data-live="1" placeholder="اسم الصنف" /></div>
+        <div class="c-unit"><input type="text" value="${escapeHtml(p.unit)}" data-field="unit" data-live="1" placeholder="-" /></div>
+        <div class="c-price"><input type="text" inputmode="decimal" value="${escapeHtml(p.price)}" data-field="price" data-live="1" placeholder="-" /></div>
+        <div class="c-del"><button class="del-p" title="حذف">✕</button></div>
+      </div>`;
+  }
+
+  function renderCategory(){
+    const cat = data.categories.find(c => c.id === view.catId);
+    if(!cat){ view = { mode:'grid', catId:null }; return renderGrid(); }
+
+    let listHtml;
+    if(cat.products.length === 0){
+      listHtml = `<div class="empty-plist">لا توجد منتجات بعد، أضف أول صنف من الأسفل</div>`;
+    } else {
+      listHtml = cat.products.map(productRowHtml).join('');
+    }
+
+    document.getElementById('content').innerHTML = `
+      <div class="detail-head">
+        <button class="back-btn" id="backBtn">←</button>
+        <input class="cat-name" id="catNameInput" value="${escapeHtml(cat.name)}" data-live="1" />
+        <button class="del-cat-btn" id="delCatBtn">🗑</button>
+      </div>
+      <div class="plist">
+        <div class="plist-header">
+          <span class="c-name">الصنف</span>
+          <span class="c-unit">الوحدة</span>
+          <span class="c-price">السعر</span>
+          <span class="c-del"></span>
+        </div>
+        <div id="prowsWrap">${listHtml}</div>
+        <div class="add-row">
+          <div class="c-name"><input id="newName" type="text" placeholder="اسم الصنف" /></div>
+          <div class="c-unit"><input id="newUnit" type="text" placeholder="الوحدة" /></div>
+          <div class="c-price"><input id="newPrice" type="text" inputmode="decimal" placeholder="السعر" /></div>
+          <div class="c-del"><button class="add-p" id="addProdBtn">+</button></div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('backBtn').addEventListener('click', () => { view = { mode:'grid', catId:null }; render(); });
+    document.getElementById('delCatBtn').addEventListener('click', () => deleteCategory(cat.id));
+    document.getElementById('catNameInput').addEventListener('input', e => renameCategory(cat.id, e.target.value));
+
+    document.querySelectorAll('#prowsWrap .prow').forEach(row => {
+      const prodId = row.dataset.prod;
+      row.querySelectorAll('input[data-field]').forEach(inp => {
+        inp.addEventListener('input', e => updateProduct(cat.id, prodId, inp.dataset.field, e.target.value));
+      });
+      row.querySelector('.del-p').addEventListener('click', () => deleteProduct(cat.id, prodId));
+    });
+
+    const nameI = document.getElementById('newName');
+    const unitI = document.getElementById('newUnit');
+    const priceI = document.getElementById('newPrice');
+    function submitNew(){
+      addProduct(cat.id, nameI.value, unitI.value, priceI.value);
+    }
+    document.getElementById('addProdBtn').addEventListener('click', submitNew);
+    [nameI, unitI, priceI].forEach(inp => inp.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); submitNew(); } }));
+  }
+
+  function renderSearch(){
+    const term = searchTerm.trim().toLowerCase();
+    const matches = [];
+    data.categories.forEach(cat => cat.products.forEach(p => {
+      if(p.name.toLowerCase().includes(term)) matches.push({ cat, p });
+    }));
+    if(matches.length === 0){
+      document.getElementById('content').innerHTML = `<div class="no-results">لا توجد نتائج لـ "${escapeHtml(searchTerm)}"</div>`;
+      return;
+    }
+    let html = `
+      <div class="search-group-label">${matches.length} نتيجة</div>
+      <div class="plist">
+        <div class="plist-header">
+          <span class="c-name">الصنف</span>
+          <span class="c-unit">الوحدة</span>
+          <span class="c-price">السعر</span>
+          <span class="c-del"></span>
+        </div>
+        <div>`;
+    matches.forEach(m => {
+      html += `
+        <div class="prow" data-cat="${m.cat.id}" data-prod="${m.p.id}">
+          <div class="c-name">${escapeHtml(m.p.name)}<span class="search-item-cat">— ${escapeHtml(m.cat.name)}</span></div>
+          <div class="c-unit" style="text-align:center;font-size:13px;color:var(--ink-soft);">${escapeHtml(m.p.unit)}</div>
+          <div class="c-price" style="text-align:center;font-weight:700;color:var(--accent);font-size:13.5px;">${escapeHtml(m.p.price)}</div>
+          <div class="c-del"><button class="del-p search-del">✕</button></div>
+        </div>`;
+    });
+    html += `</div></div>`;
+    document.getElementById('content').innerHTML = html;
+    document.querySelectorAll('.search-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const row = btn.closest('.prow');
+        deleteProduct(row.dataset.cat, row.dataset.prod);
+      });
+    });
+  }
+
+  function render(){
+    if(searchTerm.trim()){ renderSearch(); return; }
+    if(view.mode === 'category'){ renderCategory(); } else { renderGrid(); }
+  }
+
+  document.getElementById('searchInput').addEventListener('input', e => {
+    searchTerm = e.target.value;
+    render();
+  });
+
+  startApp();
+  render();
+})();
+</script>
+
+</body>
+</html>
